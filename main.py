@@ -41,7 +41,7 @@ def generate_scene_description(mode, model_id, device, quantize, num_devices, in
         cmd = ["python", "-m", "cli.inference.throughput_optimizer", model_id, "--remote-source", "modelscope"]
         if device and device != "无 (None)":
             cmd.extend(["--device", device])
-        if num_devices is not None:
+        if num_devices is not None and num_devices > 0:
             cmd.extend(["--num-devices", str(int(num_devices))])
         if input_len is not None:
             cmd.extend(["--input-length", str(int(input_len))])
