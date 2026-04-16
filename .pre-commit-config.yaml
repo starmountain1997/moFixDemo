@@ -1,0 +1,56 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: pyright
+        name: basedpyright
+        entry: uv run basedpyright --pythonversion 3.13
+        language: system
+        pass_filenames: false
+
+      - id: vulture
+        name: vulture
+        entry: uv run vulture
+        args: ["./", "--min-confidence", "80", "--exclude", ".venv", "--ignore-names", "env_settings,dotenv_settings,file_secret_settings"]
+        language: system
+        pass_filenames: false
+
+      - id: radon
+        name: radon
+        entry: uv run radon
+        args: ["cc", "./", "--min=B"]
+        language: system
+        pass_filenames: false
+
+      - id: autoflake
+        name: autoflake
+        entry: uv run autoflake
+        args: [--expand-star-imports, --remove-all-unused-imports, --in-place]
+        language: system
+        types: [python]
+
+      - id: isort
+        name: isort
+        entry: uv run isort
+        args: [--profile, black]
+        language: system
+        types: [python]
+
+      - id: mdformat
+        name: mdformat
+        entry: uv run mdformat
+        language: system
+        types: [markdown]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
