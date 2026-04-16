@@ -17,14 +17,14 @@ repos:
       - id: vulture
         name: vulture
         entry: uv run vulture
-        args: ["./", "--min-confidence", "80", "--exclude", ".venv", "--ignore-names", "env_settings,dotenv_settings,file_secret_settings"]
+        args: ["./", "--min-confidence", "80", "--exclude", ".venv,msmodeling", "--ignore-names", "env_settings,dotenv_settings,file_secret_settings"]
         language: system
         pass_filenames: false
 
       - id: radon
         name: radon
         entry: uv run radon
-        args: ["cc", "./", "--min=B"]
+        args: ["cc", "./", "--min=B", "--exclude", "msmodeling/*"]
         language: system
         pass_filenames: false
 
