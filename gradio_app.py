@@ -3,19 +3,10 @@ import os
 from modelscope.hub.api import HubApi
 from modelscope.hub.snapshot_download import snapshot_download
 
-# 模型权重基础目录
-MODEL_WEIGHTS_BASE = "/home/model_weights"
-
 def ensure_model_available(model_id):
     if not model_id or not model_id.strip():
         return None, "模型 ID 不能为空。", False
     
-    if not os.path.exists(MODEL_WEIGHTS_BASE):
-        try:
-            os.makedirs(MODEL_WEIGHTS_BASE, exist_ok=True)
-        except PermissionError:
-            return None, f"权限拒绝：无法创建目录 '{MODEL_WEIGHTS_BASE}'", False
-
     api = HubApi()
     try:
         api.get_model(model_id)
@@ -23,7 +14,7 @@ def ensure_model_available(model_id):
         return None, f"在 ModelScope 上未找到模型 '{model_id}'。", False
 
     try:
-        downloaded_path = snapshot_download(model_id, cache_dir=MODEL_WEIGHTS_BASE)
+        downloaded_path = snapshot_download(model_id)
         return downloaded_path, "模型准备就绪", True
     except Exception as e:
         return None, f"自动化下载失败：{str(e)}", False
