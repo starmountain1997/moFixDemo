@@ -22,6 +22,36 @@ def ensure_model_available(model_id):
         return None, f"自动化下载失败：{str(e)}", False
 
 
+# Mapping of msmodeling architectures to user-friendly keywords for validation
+# This helps match ModelScope IDs (e.g., 'deepseek-ai/DeepSeek-V3') to internal types (e.g., 'deepseek_v3')
+MODEL_KEYWORDS = {
+    "DeepSeek": ["deepseek", "deepseek_v3", "deepseek_v32"],
+    "Qwen": ["qwen", "qwen3", "qwen2.5", "qwen3_vl", "qwen3_5"],
+    "GLM": ["glm", "glm4", "glm4v", "chatglm"],
+    "InternVL": ["internvl"],
+    "ERNIE": ["ernie"],
+    "Bailing": ["bailing"],
+    "MiniMax": ["minimax", "m2"],
+    "MIMO": ["mimo"],
+    "Wan": ["wan"],
+    "Hunyuan": ["hunyuan"],
+}
+
+
+def validate_model_id(model_id):
+    """
+    Smarter validation that normalizes strings to catch 'deepseek-v3', 'DeepSeek_V3', etc.
+    """
+    # Normalize: lowercase and replace hyphens with underscores
+    normalized_id = model_id.lower().replace("-", "_")
+
+    for category, keywords in MODEL_KEYWORDS.items():
+        for kw in keywords:
+            if kw.lower() in normalized_id:
+                return True
+    return False
+
+
 def generate_scene_description(
     mode,
     model_id,
@@ -37,6 +67,14 @@ def generate_scene_description(
     # 1. 必选参数校验
     if not model_id or not model_id.strip():
         return "## ❌ 错误\n**ModelScope 模型 ID** 是必选参数，请填写后再试。"
+
+    if not validate_model_id(model_id):
+        supported_categories = ", ".join(MODEL_KEYWORDS.keys())
+        return (
+            f"## ❌ 预期不支持\n模型 ID `{model_id}` 可能不属于 `msmodeling` 目前支持的架构系列。\n\n"
+            f"**当前支持的主流系列包括:**\n{supported_categories}\n\n"
+            "*如果您确认该模型架构兼容，请联系开发人员或直接尝试运行。*"
+        )
 
     # 2. 自动化下载/检查
     progress(0.1, desc="正在同步模型权重...")
@@ -124,7 +162,6 @@ def generate_scene_description(
 
 devices = [
     "无 (None)",
-    "TEST_DEVICE",
     "ATLAS_800_A2_376T_64G",
     "ATLAS_800_A2_313T_64G",
     "ATLAS_800_A2_280T_64G",
@@ -132,6 +169,7 @@ devices = [
     "ATLAS_800_A2_280T_32G_PCIE",
     "ATLAS_800_A3_752T_128G_DIE",
     "ATLAS_800_A3_560T_128G_DIE",
+    "TEST_DEVICE",
 ]
 
 quant_options = [

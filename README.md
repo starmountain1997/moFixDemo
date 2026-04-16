@@ -54,3 +54,10 @@ uv run python main.py
 - **UI 框架**：Gradio
 - **核心引擎**：`msmodeling` (liuren-modeling)
 - **权重来源**：ModelScope Hub
+
+# TODO
+
+- 模型列表要有所限制
+- stdout 加工，把重要信息抽取出来
+- 免责声明
+- mcp tool化
