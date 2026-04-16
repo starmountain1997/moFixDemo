@@ -1,0 +1,3 @@
+[submodule "msmodeling"]
+	path = msmodeling
+	url = https://gitcode.com/Ascend/msmodeling
