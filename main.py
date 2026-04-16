@@ -19,6 +19,8 @@ def ensure_model_available(model_id):
     except Exception as e:
         return None, f"自动化下载失败：{str(e)}", False
 
+import subprocess
+
 def generate_scene_description(mode, model_id, device, quantize, num_devices, input_len, output_len, ttft_limit, tpot_limit, progress=gr.Progress()):
     # 1. 必选参数校验
     if not model_id or not model_id.strip():
@@ -30,64 +32,60 @@ def generate_scene_description(mode, model_id, device, quantize, num_devices, in
     if not success:
         return f"## ❌ 错误\n{status_msg}"
     
-    progress(0.8, desc="正在分析参数...")
+    progress(0.4, desc="正在分析参数并生成命令...")
     
-    # 3. 构建描述信息
-    description = f"### 推理场景配置分析\n\n"
-    description += f"**模型 ID:** {model_id}\n"
-    if local_path:
-        description += f"**本地路径:** `{local_path}`\n"
-    
-    if device and device != "无 (None)":
-        dev_str = f"{int(num_devices)}x " if num_devices is not None else ""
-        description += f"**目标硬件:** {dev_str}{device}\n"
-        
-    if quantize and quantize != "DISABLED (禁用)":
-        description += f"**量化方式:** {quantize}\n"
-    
-    description += "\n"
-
-    # 4. 构建命令行
+    # 3. 构建命令行
     q_val = quantize.split(" ")[0] if quantize else "DISABLED"
     
     if mode == "吞吐量优化":
-        description += "#### 性能目标与约束 (SLO):\n"
-        ttft_str = f"< {int(ttft_limit)} ms" if ttft_limit is not None else "未设置 (尽力而为)"
-        tpot_str = f"< {int(tpot_limit)} ms" if tpot_limit is not None else "未设置 (尽力而为)"
-        description += f"- **TTFT 限制 (首字延迟):** {ttft_str}\n"
-        description += f"- **TPOT 限制 (字间延迟):** {tpot_str}\n"
-            
-        if input_len is not None or output_len is not None:
-            description += f"\n#### 业务负载详情:\n"
-            if input_len is not None: description += f"- **输入长度:** {int(input_len)} tokens\n"
-            if output_len is not None: description += f"- **输出长度:** {int(output_len)} tokens\n"
-        
-        # 构建命令
-        cmd = f"python -m cli.inference.throughput_optimizer {model_id} --remote-source modelscope"
-        if device and device != "无 (None)": cmd += f" --device {device}"
-        if num_devices is not None: cmd += f" --num-devices {int(num_devices)}"
-        if input_len is not None: cmd += f" --input-length {int(input_len)}"
-        if output_len is not None: cmd += f" --output-length {int(output_len)}"
-        if ttft_limit is not None: cmd += f" --ttft-limits {int(ttft_limit)}"
-        if tpot_limit is not None: cmd += f" --tpot-limits {int(tpot_limit)}"
-        if q_val != "DISABLED": cmd += f" --quantize-linear-action {q_val}"
-        
-        description += f"\n---\n**优化器启动命令:**\n`{cmd}`"
-        
-    else: # 性能仿真
+        cmd = ["python", "-m", "cli.inference.throughput_optimizer", model_id, "--remote-source", "modelscope"]
+        if device and device != "无 (None)":
+            cmd.extend(["--device", device])
+        if num_devices is not None:
+            cmd.extend(["--num-devices", str(int(num_devices))])
         if input_len is not None:
-            description += "#### 业务负载详情:\n"
-            description += f"- **输入长度:** {int(input_len)} tokens\n"
-        
-        cmd = f"python -m cli.inference.text_generate {model_id} --remote-source modelscope"
-        if device and device != "无 (None)": cmd += f" --device {device}"
-        if input_len is not None: cmd += f" --query-length {int(input_len)}"
-        cmd += " --num-queries 1"
-        if q_val != "DISABLED": cmd += f" --quantize-linear-action {q_val}"
-        
-        description += f"\n---\n**性能仿真命令:**\n`{cmd}`"
+            cmd.extend(["--input-length", str(int(input_len))])
+        if output_len is not None:
+            cmd.extend(["--output-length", str(int(output_len))])
+        if ttft_limit is not None:
+            cmd.extend(["--ttft-limits", str(int(ttft_limit))])
+        if tpot_limit is not None:
+            cmd.extend(["--tpot-limits", str(int(tpot_limit))])
+        if q_val != "DISABLED":
+            cmd.extend(["--quantize-linear-action", q_val])
+    else: # 性能仿真
+        cmd = ["python", "-m", "cli.inference.text_generate", model_id, "--remote-source", "modelscope"]
+        if device and device != "无 (None)":
+            cmd.extend(["--device", device])
+        if input_len is not None:
+            cmd.extend(["--query-length", str(int(input_len))])
+        cmd.extend(["--num-queries", "1"])
+        if q_val != "DISABLED":
+            cmd.extend(["--quantize-linear-action", q_val])
 
-    return description
+    progress(0.6, desc="正在执行 msmodeling...")
+    
+    try:
+        # 运行命令并捕获输出
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        
+        output_text = f"### 执行结果\n\n"
+        output_text += f"**执行命令:** `{' '.join(cmd)}`\n\n"
+        
+        if result.stdout:
+            output_text += "#### 标准输出 (stdout):\n```text\n" + result.stdout + "\n```\n"
+        
+        if result.stderr:
+            output_text += "#### 标准错误 (stderr):\n```text\n" + result.stderr + "\n```\n"
+            
+        if result.returncode != 0:
+            output_text += f"\n> ⚠️ **命令执行失败，退出码: {result.returncode}**"
+            
+        return output_text
+
+    except Exception as e:
+        return f"## ❌ 执行错误\n无法运行命令：{str(e)}"
+
 
 devices = [
     "无 (None)", "TEST_DEVICE", "ATLAS_800_A2_376T_64G", "ATLAS_800_A2_313T_64G", 
