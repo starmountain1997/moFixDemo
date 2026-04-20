@@ -260,7 +260,9 @@ compile_options = [
     "false",
 ]
 
-with gr.Blocks(title="msModeling 推理仿真与参数寻优工具") as demo:
+with gr.Blocks(
+    title="msModeling 推理仿真与参数寻优工具", theme=gr.themes.Glass()
+) as demo:
     gr.Markdown("# msModeling 推理仿真与参数寻优工具")
     gr.Markdown(
         "基于 Ascend 平台的 AI 模型性能评估与优化工具，支持推理仿真和参数寻优两大核心功能"
