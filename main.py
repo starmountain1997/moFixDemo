@@ -1,22 +1,21 @@
 import subprocess
+from typing import cast
 
 import gradio as gr
 from atomgit_hub import snapshot_download
 
 
-def ensure_model_available(model_id):
+def ensure_model_available(model_id: str) -> tuple[str | None, str, bool]:
     if not model_id or not model_id.strip():
         return None, "模型 ID 不能为空。", False
 
     try:
-        download_path=snapshot_download(f"{model_id}")
+        download_path = snapshot_download(f"{model_id}")
         return download_path, "模型准备就绪", True
     except Exception as e:
         return None, f"自动化下载失败：{str(e)}", False
 
 
-# Mapping of msmodeling architectures to user-friendly keywords for validation
-# This helps match ModelScope IDs (e.g., 'deepseek-ai/DeepSeek-V3') to internal types (e.g., 'deepseek_v3')
 MODEL_KEYWORDS = {
     "DeepSeek": ["deepseek", "deepseek_v3", "deepseek_v32"],
     "Qwen": ["qwen", "qwen3", "qwen2.5", "qwen3_vl", "qwen3_5"],
@@ -31,13 +30,8 @@ MODEL_KEYWORDS = {
 }
 
 
-def validate_model_id(model_id):
-    """
-    Smarter validation that normalizes strings to catch 'deepseek-v3', 'DeepSeek_V3', etc.
-    """
-    # Normalize: lowercase and replace hyphens with underscores
+def validate_model_id(model_id: str) -> bool:
     normalized_id = model_id.lower().replace("-", "_")
-
     for category, keywords in MODEL_KEYWORDS.items():
         for kw in keywords:
             if kw.lower() in normalized_id:
@@ -45,19 +39,19 @@ def validate_model_id(model_id):
     return False
 
 
-def generate_scene_description(
-    mode,
-    model_id,
-    device,
-    quantize,
-    num_devices,
-    input_len,
-    output_len,
-    ttft_limit,
-    tpot_limit,
-    progress=gr.Progress(),
-):
-    # 1. 必选参数校验
+def execute_inference_simulation(
+    model_id: str,
+    device: str | None,
+    num_queries: int | float | None,
+    query_length: int | float | None,
+    context_length: int | float | None,
+    num_devices: int | float | None,
+    compile: str | None,
+    quantize_linear_action: str | None,
+    quantize_attention_action: str | None,
+    progress: gr.Progress = gr.Progress(),
+) -> str:
+    # Validation
     if not model_id or not model_id.strip():
         return "## ❌ 错误\n**ModelScope 模型 ID** 是必选参数，请填写后再试。"
 
@@ -69,7 +63,7 @@ def generate_scene_description(
             "*如果您确认该模型架构兼容，请联系开发人员或直接尝试运行。*"
         )
 
-    # 2. 自动化下载/检查
+    # Download model
     progress(0.1, desc="正在同步模型权重...")
     local_path, status_msg, success = ensure_model_available(model_id)
     if not success:
@@ -77,57 +71,135 @@ def generate_scene_description(
 
     progress(0.4, desc="正在分析参数并生成命令...")
 
-    # 3. 构建命令行
-    q_val = quantize.split(" ")[0] if quantize else "DISABLED"
-    model_id = local_path
+    # Build command
+    q_val = (
+        quantize_linear_action.split(" ")[0] if quantize_linear_action else "DISABLED"
+    )
+    model_path = local_path
 
-    if mode == "吞吐量优化":
-        if input_len is None or input_len <= 0 or output_len is None or output_len <= 0:
-            return "## ❌ 错误\n**输入长度** 和 **预期输出长度** 在吞吐量优化模式下是必选参数，且必须大于 0。"
-
-        cmd = [
-            "python",
-            "-m",
-            "cli.inference.throughput_optimizer",
-            model_id,
-        ]
-        if device and device != "无 (None)":
-            cmd.extend(["--device", device])
-        if num_devices is not None and num_devices > 0:
-            cmd.extend(["--num-devices", str(int(num_devices))])
-        cmd.extend(["--input-length", str(int(input_len))])
-        cmd.extend(["--output-length", str(int(output_len))])
-        if ttft_limit is not None and ttft_limit > 0:
-            cmd.extend(["--ttft-limits", str(int(ttft_limit))])
-        if tpot_limit is not None and tpot_limit > 0:
-            cmd.extend(["--tpot-limits", str(int(tpot_limit))])
-        if q_val != "DISABLED":
-            cmd.extend(["--quantize-linear-action", q_val])
-    else:  # 性能仿真
-        if input_len is None or input_len <= 0:
-            return "## ❌ 错误\n**输入长度** 在性能仿真模式下是必选参数，且必须大于 0。"
-
-        cmd = [
-            "python",
-            "-m",
-            "cli.inference.text_generate",
-            model_id,
-            # "--remote-source",
-            # "modelscope",
-        ]
-        if device and device != "无 (None)":
-            cmd.extend(["--device", device])
-        if num_devices is not None and num_devices > 0:
-            cmd.extend(["--num-devices", str(int(num_devices))])
-        cmd.extend(["--query-length", str(int(input_len))])
-        cmd.extend(["--num-queries", "1"])
-        if q_val != "DISABLED":
-            cmd.extend(["--quantize-linear-action", q_val])
+    cmd: list[str] = [
+        "python",
+        "-m",
+        "cli.inference.text_generate",
+        cast(str, model_path),
+    ]
+    if device and device != "无 (None)":
+        cmd.extend(["--device", device])
+    if num_devices is not None and num_devices > 0:
+        cmd.extend(["--num-devices", str(int(num_devices))])
+    if query_length is not None and query_length > 0:
+        cmd.extend(["--query-length", str(int(query_length))])
+    if num_queries is not None and num_queries > 0:
+        cmd.extend(["--num-queries", str(int(num_queries))])
+    if context_length is not None and context_length > 0:
+        cmd.extend(["--context-length", str(int(context_length))])
+    if compile and compile != "无 (None)":
+        cmd.extend(["--compile", compile])
+    if q_val != "DISABLED":
+        cmd.extend(["--quantize-linear-action", q_val])
+    if quantize_attention_action and quantize_attention_action != "DISABLED":
+        att_val = quantize_attention_action.split(" ")[0]
+        cmd.extend(["--quantize-attention-action", att_val])
 
     progress(0.6, desc="正在执行 msmodeling...")
 
     try:
-        # 运行命令并捕获输出
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+        output_text = "### 执行结果\n\n"
+        output_text += f"**执行命令:** `{' '.join(cmd)}`\n\n"
+
+        if result.stdout:
+            output_text += (
+                "#### 标准输出 (stdout):\n```text\n" + result.stdout + "\n```\n"
+            )
+
+        if result.stderr:
+            output_text += (
+                "#### 标准错误 (stderr):\n```text\n" + result.stderr + "\n```\n"
+            )
+
+        if result.returncode != 0:
+            output_text += f"\n> ⚠️ **命令执行失败，退出码: {result.returncode}**"
+
+        return output_text
+
+    except Exception as e:
+        return f"## ❌ 执行错误\n无法运行命令：{str(e)}"
+
+
+def execute_parameter_optimization(
+    model_id: str,
+    device: str | None,
+    input_length: int | float | None,
+    output_length: int | float | None,
+    num_devices: int | float | None,
+    tpot_limits: int | float | None,
+    ttft_limits: int | float | None,
+    max_prefill_tokens: int | float | None,
+    compile: str | None,
+    quantize_linear_action: str | None,
+    progress: gr.Progress = gr.Progress(),
+) -> str:
+    # Validation
+    if not model_id or not model_id.strip():
+        return "## ❌ 错误\n**ModelScope 模型 ID** 是必选参数，请填写后再试。"
+
+    if not validate_model_id(model_id):
+        supported_categories = ", ".join(MODEL_KEYWORDS.keys())
+        return (
+            f"## ❌ 预期不支持\n模型 ID `{model_id}` 可能不属于 `msmodeling` 目前支持的架构系列。\n\n"
+            f"**当前支持的主流系列包括:**\n{supported_categories}\n\n"
+            "*如果您确认该模型架构兼容，请联系开发人员或直接尝试运行。*"
+        )
+
+    if (
+        input_length is None
+        or input_length <= 0
+        or output_length is None
+        or output_length <= 0
+    ):
+        return "## ❌ 错误\n**输入长度** 和 **预期输出长度** 是必选参数，且必须大于 0。"
+
+    # Download model
+    progress(0.1, desc="正在同步模型权重...")
+    local_path, status_msg, success = ensure_model_available(model_id)
+    if not success:
+        return f"## ❌ 错误\n{status_msg}"
+
+    progress(0.4, desc="正在分析参数并生成命令...")
+
+    q_val = (
+        quantize_linear_action.split(" ")[0] if quantize_linear_action else "DISABLED"
+    )
+    model_path = local_path
+
+    cmd: list[str] = [
+        "python",
+        "-m",
+        "cli.inference.throughput_optimizer",
+        cast(str, model_path),
+    ]
+    if device and device != "无 (None)":
+        cmd.extend(["--device", device])
+    if num_devices is not None and num_devices > 0:
+        cmd.extend(["--num-devices", str(int(num_devices))])
+    cmd.extend(["--input-length", str(int(input_length))])
+    cmd.extend(["--output-length", str(int(output_length))])
+    if ttft_limits is not None and ttft_limits > 0:
+        cmd.extend(["--ttft-limits", str(int(ttft_limits))])
+    if tpot_limits is not None and tpot_limits > 0:
+        cmd.extend(["--tpot-limits", str(int(tpot_limits))])
+    if max_prefill_tokens is not None and max_prefill_tokens > 0:
+        cmd.extend(["--max-prefill-tokens", str(int(max_prefill_tokens))])
+    if compile and compile != "无 (None)":
+        cmd.extend(["--compile", compile])
+    if q_val != "DISABLED":
+        cmd.extend(["--quantize-linear-action", q_val])
+
+    progress(0.6, desc="正在执行 msmodeling...")
+
+    try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
         output_text = "### 执行结果\n\n"
@@ -176,57 +248,205 @@ quant_options = [
     "MXFP4",
 ]
 
-with gr.Blocks(title="MindStudio Modeling 场景生成器") as demo:
-    gr.Markdown("# MindStudio Modeling 自动化配置生成")
-    gr.Markdown("所有数值参数默认为空（不设置）。**模型 ID 为必填项**。")
+attention_quant_options = [
+    "DISABLED (禁用)",
+    "INT8",
+    "FP8",
+]
 
-    with gr.Row():
-        mode = gr.Radio(
-            ["吞吐量优化", "文本生成 (性能仿真)"], label="运行模式", value="吞吐量优化"
-        )
-        device = gr.Dropdown(devices, label="设备型号", value="无 (None)")
-        num_devices = gr.Number(label="设备数量", value=None, precision=0)
+compile_options = [
+    "无 (None)",
+    "true",
+    "false",
+]
 
-    with gr.Row():
-        quantize = gr.Dropdown(quant_options, label="量化方式", value="DISABLED (禁用)")
-        model_id = gr.Textbox(
-            label="ModelScope 模型 ID (必填)",
-            placeholder="例如：qwen/Qwen2.5-7B-Instruct",
-        )
-
-    with gr.Row():
-        input_len = gr.Number(label="输入长度 (Tokens)", value=None, precision=0)
-        output_len = gr.Number(label="预期输出长度 (Tokens)", value=None, precision=0)
-
-    with gr.Group() as slo_group:
-        gr.Markdown("### 性能限制 (SLO) - 留空表示不限制")
-        with gr.Row():
-            ttft_limit = gr.Number(label="TTFT 限制 (ms)", value=None, precision=0)
-            tpot_limit = gr.Number(label="TPOT 限制 (ms)", value=None, precision=0)
-
-    output = gr.Markdown(label="生成的配置与命令")
-    submit_btn = gr.Button("生成配置并同步权重", variant="primary")
-
-    def toggle_slo(m):
-        return gr.update(visible=(m == "吞吐量优化"))
-
-    mode.change(toggle_slo, mode, slo_group)
-
-    submit_btn.click(
-        generate_scene_description,
-        inputs=[
-            mode,
-            model_id,
-            device,
-            quantize,
-            num_devices,
-            input_len,
-            output_len,
-            ttft_limit,
-            tpot_limit,
-        ],
-        outputs=output,
+with gr.Blocks(title="msModeling 推理仿真与参数寻优工具") as demo:
+    gr.Markdown("# msModeling 推理仿真与参数寻优工具")
+    gr.Markdown(
+        "基于 Ascend 平台的 AI 模型性能评估与优化工具，支持推理仿真和参数寻优两大核心功能"
     )
+
+    with gr.Tabs():
+        # ==================== 推理仿真 Tab ====================
+        with gr.TabItem("推理仿真"):
+            gr.Markdown("### 功能介绍")
+            gr.Markdown(
+                "用于评估模型在不同配置下的推理性能，包括并发测试和单次forward时间测量。\n\n"
+                "**主要用途：** 测试不同并发数下的模型性能 | 评估单次forward时间 | "
+                "分析不同硬件设备的表现 | 验证量化对性能的影响"
+            )
+
+            gr.Markdown("### 基本参数")
+
+            with gr.Row():
+                model_id_sim = gr.Textbox(
+                    label="模型名称/路径 (--model) *",
+                    placeholder="例如：Qwen3-32B 或本地模型路径",
+                    scale=2,
+                )
+
+            with gr.Row():
+                device_sim = gr.Dropdown(
+                    devices,
+                    label="硬件型号 (--device)",
+                    value="无 (None)",
+                )
+                quantize_attention_sim = gr.Dropdown(
+                    attention_quant_options,
+                    label="Attention量化 (--quantize-attention-action)",
+                    value="DISABLED (禁用)",
+                )
+
+            with gr.Row():
+                num_queries_sim = gr.Number(
+                    label="并发数 (--num-queries)",
+                    value=2,
+                    precision=0,
+                )
+                query_length_sim = gr.Number(
+                    label="输入长度 (--query-length)",
+                    value=3500,
+                    precision=0,
+                )
+
+            with gr.Row():
+                context_length_sim = gr.Number(
+                    label="上下文长度 (--context-length)",
+                    value=3000,
+                    precision=0,
+                )
+                num_devices_sim = gr.Number(
+                    label="部署卡数 (--num-devices)",
+                    value=1,
+                    precision=0,
+                )
+
+            with gr.Row():
+                compile_sim = gr.Dropdown(
+                    compile_options,
+                    label="图编译 (--compile)",
+                    value="无 (None)",
+                )
+                quantize_linear_sim = gr.Dropdown(
+                    quant_options,
+                    label="线性层量化 (--quantize-linear-action)",
+                    value="DISABLED (禁用)",
+                )
+
+            with gr.Accordion("更多参数", open=False):
+                gr.Markdown("高级配置选项（可根据需要调整）")
+
+            sim_output = gr.Markdown(label="执行结果")
+            sim_submit_btn = gr.Button("执行仿真", variant="primary")
+
+            sim_submit_btn.click(
+                execute_inference_simulation,
+                inputs=[
+                    model_id_sim,
+                    device_sim,
+                    num_queries_sim,
+                    query_length_sim,
+                    context_length_sim,
+                    num_devices_sim,
+                    compile_sim,
+                    quantize_linear_sim,
+                    quantize_attention_sim,
+                ],
+                outputs=sim_output,
+            )
+
+        # ==================== 参数寻优 Tab ====================
+        with gr.TabItem("参数寻优"):
+            gr.Markdown("### 功能介绍")
+            gr.Markdown(
+                "用于评估PD混部场景在给定SLO下的Top n吞吐配置。\n\n"
+                "**主要用途：** 给定输入输出长度寻找最佳批次大小 | 在TPOT和TTFT约束下优化模型配置 | "
+                "评估不同量化策略对性能的影响 | 找到最优的并行策略"
+            )
+
+            gr.Markdown("### 基本参数")
+
+            with gr.Row():
+                model_id_opt = gr.Textbox(
+                    label="模型名称/路径 (--model) *",
+                    placeholder="例如：Qwen3-32B 或本地模型路径",
+                    scale=2,
+                )
+                device_opt = gr.Dropdown(
+                    devices,
+                    label="硬件型号 (--device)",
+                    value="无 (None)",
+                )
+
+            with gr.Row():
+                input_length_opt = gr.Number(
+                    label="输入长度 (--input-length) *",
+                    value=3500,
+                    precision=0,
+                )
+                output_length_opt = gr.Number(
+                    label="输出长度 (--output-length) *",
+                    value=1500,
+                    precision=0,
+                )
+
+            with gr.Row():
+                num_devices_opt = gr.Number(
+                    label="部署卡数 (--num-devices)",
+                    value=8,
+                    precision=0,
+                )
+                tpot_limits_opt = gr.Number(
+                    label="TPOT约束 (--tpot-limits)",
+                    value=50,
+                    precision=0,
+                )
+
+            with gr.Row():
+                ttft_limits_opt = gr.Number(
+                    label="TTFT约束 (--ttft-limits)",
+                    value=7000,
+                    precision=0,
+                )
+                max_prefill_tokens_opt = gr.Number(
+                    label="最大预填充令牌数 (--max-prefill-tokens)",
+                    value=8192,
+                    precision=0,
+                )
+
+            with gr.Accordion("更多参数", open=False):
+                with gr.Row():
+                    compile_opt = gr.Dropdown(
+                        compile_options,
+                        label="图编译 (--compile)",
+                        value="无 (None)",
+                    )
+                    quantize_linear_opt = gr.Dropdown(
+                        quant_options,
+                        label="线性层量化 (--quantize-linear-action)",
+                        value="DISABLED (禁用)",
+                    )
+
+            opt_output = gr.Markdown(label="执行结果")
+            opt_submit_btn = gr.Button("执行寻优", variant="primary")
+
+            opt_submit_btn.click(
+                execute_parameter_optimization,
+                inputs=[
+                    model_id_opt,
+                    device_opt,
+                    input_length_opt,
+                    output_length_opt,
+                    num_devices_opt,
+                    tpot_limits_opt,
+                    ttft_limits_opt,
+                    max_prefill_tokens_opt,
+                    compile_opt,
+                    quantize_linear_opt,
+                ],
+                outputs=opt_output,
+            )
+
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0")
