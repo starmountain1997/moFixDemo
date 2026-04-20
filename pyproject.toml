@@ -9,6 +9,8 @@ dependencies = [
     "hf-gradio>=0.3.2",
     "liuren-modeling",
     "modelscope>=1.35.4",
+    "torch>=2.11.0",
+    "transformers>=5.5.4",
 ]
 
 [[tool.uv.index]]

@@ -86,6 +86,7 @@ def generate_scene_description(
 
     # 3. 构建命令行
     q_val = quantize.split(" ")[0] if quantize else "DISABLED"
+    model_id = local_path
 
     if mode == "吞吐量优化":
         if input_len is None or input_len <= 0 or output_len is None or output_len <= 0:
@@ -96,8 +97,6 @@ def generate_scene_description(
             "-m",
             "cli.inference.throughput_optimizer",
             model_id,
-            "--remote-source",
-            "modelscope",
         ]
         if device and device != "无 (None)":
             cmd.extend(["--device", device])
@@ -120,8 +119,8 @@ def generate_scene_description(
             "-m",
             "cli.inference.text_generate",
             model_id,
-            "--remote-source",
-            "modelscope",
+            # "--remote-source",
+            # "modelscope",
         ]
         if device and device != "无 (None)":
             cmd.extend(["--device", device])
