@@ -260,8 +260,17 @@ compile_options = [
     "false",
 ]
 
+theme = gr.themes.Default(
+    primary_hue="blue",
+    secondary_hue="gray",
+    neutral_hue="gray",
+).set(
+    body_background_fill="*neutral_950",
+    body_background_fill_dark="*neutral_950",
+)
+
 with gr.Blocks(
-    title="msModeling 推理仿真与参数寻优工具", theme=gr.themes.Glass()
+    title="msModeling 推理仿真与参数寻优工具", theme=theme
 ) as demo:
     gr.Markdown("# msModeling 推理仿真与参数寻优工具")
     gr.Markdown(
