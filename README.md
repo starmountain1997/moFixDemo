@@ -16,10 +16,16 @@ MindStudio Modeling Scene Generator 是一个基于 Gradio 的图形化界面工
 确保您的系统已安装 `uv` 和 Git。
 
 ```bash
-# 同步子模块
-git submodule update --init --recursive
+# 克隆 msmodeling 仓库
+git clone https://gitcode.com/Ascend/msmodeling.git
 
-# 创建虚拟环境并安装依赖
+# 安装 Python 依赖
+pip install -r msmodeling/requirements.txt
+
+# 复制项目配置
+cp ms_pyproject.toml msmodeling/pyproject.toml
+
+# 同步虚拟环境
 uv sync
 ```
 

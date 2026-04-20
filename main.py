@@ -32,7 +32,7 @@ MODEL_KEYWORDS = {
 
 def validate_model_id(model_id: str) -> bool:
     normalized_id = model_id.lower().replace("-", "_")
-    for category, keywords in MODEL_KEYWORDS.items():
+    for _category, keywords in MODEL_KEYWORDS.items():
         for kw in keywords:
             if kw.lower() in normalized_id:
                 return True
@@ -49,7 +49,7 @@ def execute_inference_simulation(
     compile: str | None,
     quantize_linear_action: str | None,
     quantize_attention_action: str | None,
-    progress: gr.Progress = gr.Progress(),
+    progress: gr.Progress | None = None,
 ) -> str:
     # Validation
     if not model_id or not model_id.strip():
@@ -64,12 +64,14 @@ def execute_inference_simulation(
         )
 
     # Download model
-    progress(0.1, desc="正在同步模型权重...")
+    if progress:
+        progress(0.1, desc="正在同步模型权重...")
     local_path, status_msg, success = ensure_model_available(model_id)
     if not success:
         return f"## ❌ 错误\n{status_msg}"
 
-    progress(0.4, desc="正在分析参数并生成命令...")
+    if progress:
+        progress(0.4, desc="正在分析参数并生成命令...")
 
     # Build command
     q_val = (
@@ -101,7 +103,8 @@ def execute_inference_simulation(
         att_val = quantize_attention_action.split(" ")[0]
         cmd.extend(["--quantize-attention-action", att_val])
 
-    progress(0.6, desc="正在执行 msmodeling...")
+    if progress:
+        progress(0.6, desc="正在执行 msmodeling...")
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -139,7 +142,7 @@ def execute_parameter_optimization(
     max_prefill_tokens: int | float | None,
     compile: str | None,
     quantize_linear_action: str | None,
-    progress: gr.Progress = gr.Progress(),
+    progress: gr.Progress | None = None,
 ) -> str:
     # Validation
     if not model_id or not model_id.strip():
@@ -162,12 +165,14 @@ def execute_parameter_optimization(
         return "## ❌ 错误\n**输入长度** 和 **预期输出长度** 是必选参数，且必须大于 0。"
 
     # Download model
-    progress(0.1, desc="正在同步模型权重...")
+    if progress:
+        progress(0.1, desc="正在同步模型权重...")
     local_path, status_msg, success = ensure_model_available(model_id)
     if not success:
         return f"## ❌ 错误\n{status_msg}"
 
-    progress(0.4, desc="正在分析参数并生成命令...")
+    if progress:
+        progress(0.4, desc="正在分析参数并生成命令...")
 
     q_val = (
         quantize_linear_action.split(" ")[0] if quantize_linear_action else "DISABLED"
@@ -197,7 +202,8 @@ def execute_parameter_optimization(
     if q_val != "DISABLED":
         cmd.extend(["--quantize-linear-action", q_val])
 
-    progress(0.6, desc="正在执行 msmodeling...")
+    if progress:
+        progress(0.6, desc="正在执行 msmodeling...")
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -267,11 +273,9 @@ theme = gr.themes.Default(
 ).set(
     body_background_fill="*neutral_950",
     body_background_fill_dark="*neutral_950",
-)
+)  # type: ignore[reportPrivateImportUsage]
 
-with gr.Blocks(
-    title="msModeling 推理仿真与参数寻优工具", theme=theme
-) as demo:
+with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme) as demo:
     gr.Markdown("# msModeling 推理仿真与参数寻优工具")
     gr.Markdown(
         "基于 Ascend 平台的 AI 模型性能评估与优化工具，支持推理仿真和参数寻优两大核心功能"
