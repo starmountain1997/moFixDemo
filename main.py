@@ -1,23 +1,16 @@
 import subprocess
 
 import gradio as gr
-from modelscope.hub.api import HubApi
-from modelscope.hub.snapshot_download import snapshot_download
+from atomgit_hub import snapshot_download
 
 
 def ensure_model_available(model_id):
     if not model_id or not model_id.strip():
         return None, "模型 ID 不能为空。", False
 
-    api = HubApi()
     try:
-        api.get_model(model_id)
-    except Exception:
-        return None, f"在 ModelScope 上未找到模型 '{model_id}'。", False
-
-    try:
-        downloaded_path = snapshot_download(model_id)
-        return downloaded_path, "模型准备就绪", True
+        download_path=snapshot_download(f"{model_id}")
+        return download_path, "模型准备就绪", True
     except Exception as e:
         return None, f"自动化下载失败：{str(e)}", False
 
