@@ -92,8 +92,8 @@ def execute_inference_simulation(
         cmd.extend(["--num-queries", str(int(num_queries))])
     if context_length is not None and context_length > 0:
         cmd.extend(["--context-length", str(int(context_length))])
-    if compile and compile != "无 (None)":
-        cmd.extend(["--compile", compile])
+    if compile == "true":
+        cmd.append("--compile")
     if q_val != "DISABLED":
         cmd.extend(["--quantize-linear-action", q_val])
     if quantize_attention_action and quantize_attention_action != "DISABLED":
@@ -192,8 +192,8 @@ def execute_parameter_optimization(
         cmd.extend(["--tpot-limits", str(int(tpot_limits))])
     if max_prefill_tokens is not None and max_prefill_tokens > 0:
         cmd.extend(["--max-prefill-tokens", str(int(max_prefill_tokens))])
-    if compile and compile != "无 (None)":
-        cmd.extend(["--compile", compile])
+    if compile == "true":
+        cmd.append("--compile")
     if q_val != "DISABLED":
         cmd.extend(["--quantize-linear-action", q_val])
 
