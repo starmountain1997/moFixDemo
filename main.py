@@ -1,8 +1,11 @@
+import os
 import subprocess
 from typing import cast
 
 import gradio as gr
 from atomgit_hub import snapshot_download
+
+os.environ["HF_ENDPOINT"] = "https://atomgit.com/"
 
 
 def ensure_model_available(model_id: str) -> tuple[str | None, str, bool]:
