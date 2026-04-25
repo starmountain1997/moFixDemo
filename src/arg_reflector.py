@@ -483,7 +483,9 @@ class CLIReflector:
             if not visible:
                 continue
             is_open = group.name in open_groups or any(a.required for a in visible)
-            with gr.Accordion(group.name, open=is_open):
+            group_key = f"{self.cli_module}:group:{group.name}"
+            group_label = translations.get(group_key, group.name)
+            with gr.Accordion(group_label, open=is_open):
                 for arg in visible:
                     key = f"{self.cli_module}:{arg.dest}"
                     zh = translations.get(key)

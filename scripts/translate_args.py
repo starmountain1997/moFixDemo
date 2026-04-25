@@ -103,6 +103,12 @@ async def main() -> None:
     for reflector in [SIM_REFLECTOR, OPT_REFLECTOR]:
         cli_mod = reflector.cli_module
         for group in reflector.groups:
+            # Translate group name
+            group_key = f"{cli_mod}:group:{group.name}"
+            if group_key not in seen:
+                seen.add(group_key)
+                lines.append((group_key, group.name))
+            # Translate each argument
             for arg in group.args:
                 key = f"{cli_mod}:{arg.dest}"
                 if key in seen:
