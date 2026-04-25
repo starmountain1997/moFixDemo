@@ -3,20 +3,8 @@ import subprocess
 from typing import cast
 
 import gradio as gr
-from atomgit_hub import snapshot_download
 
-os.environ["HF_ENDPOINT"] = "https://atomgit.com/"
-
-
-def ensure_model_available(model_id: str) -> tuple[str | None, str, bool]:
-    if not model_id or not model_id.strip():
-        return None, "模型 ID 不能为空。", False
-
-    try:
-        download_path = snapshot_download(f"{model_id}")
-        return download_path, "模型准备就绪", True
-    except Exception as e:
-        return None, f"自动化下载失败：{str(e)}", False
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
 
 MODEL_KEYWORDS = {
@@ -66,24 +54,17 @@ def execute_inference_simulation(
         )
 
     if progress:
-        progress(0.1, desc="正在同步模型权重...")
-    local_path, status_msg, success = ensure_model_available(model_id)
-    if not success:
-        return f"## ❌ 错误\n{status_msg}"
-
-    if progress:
-        progress(0.4, desc="正在分析参数并生成命令...")
+        progress(0.2, desc="正在分析参数并生成命令...")
 
     q_val = (
         quantize_linear_action.split(" ")[0] if quantize_linear_action else "DISABLED"
     )
-    model_path = local_path
 
     cmd: list[str] = [
         "python",
         "-m",
         "cli.inference.text_generate",
-        cast(str, model_path),
+        cast(str, model_id),
     ]
     if device and device != "无 (None)":
         cmd.extend(["--device", device])
@@ -104,7 +85,7 @@ def execute_inference_simulation(
         cmd.extend(["--quantize-attention-action", att_val])
 
     if progress:
-        progress(0.6, desc="正在执行 msmodeling...")
+        progress(0.8, desc="正在执行 msmodeling...")
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -164,24 +145,17 @@ def execute_parameter_optimization(
         return "## ❌ 错误\n**输入长度** 和 **预期输出长度** 是必选参数，且必须大于 0。"
 
     if progress:
-        progress(0.1, desc="正在同步模型权重...")
-    local_path, status_msg, success = ensure_model_available(model_id)
-    if not success:
-        return f"## ❌ 错误\n{status_msg}"
-
-    if progress:
-        progress(0.4, desc="正在分析参数并生成命令...")
+        progress(0.2, desc="正在分析参数并生成命令...")
 
     q_val = (
         quantize_linear_action.split(" ")[0] if quantize_linear_action else "DISABLED"
     )
-    model_path = local_path
 
     cmd: list[str] = [
         "python",
         "-m",
         "cli.inference.throughput_optimizer",
-        cast(str, model_path),
+        cast(str, model_id),
     ]
     if device and device != "无 (None)":
         cmd.extend(["--device", device])
@@ -201,7 +175,7 @@ def execute_parameter_optimization(
         cmd.extend(["--quantize-linear-action", q_val])
 
     if progress:
-        progress(0.6, desc="正在执行 msmodeling...")
+        progress(0.8, desc="正在执行 msmodeling...")
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
