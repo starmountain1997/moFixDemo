@@ -51,7 +51,7 @@
   "cli.inference.text_generate:performance_model": "性能模型",
   "cli.inference.text_generate:profiling_database": "性能分析数据库",
   "cli.inference.throughput_optimizer:group:General Options": "通用选项",
-  "cli.inference.throughput_optimizer:model_id": "模型标识符",
+  "cli.inference.throughput_optimizer:model_id": "模型标识符，可以是：1）Hugging Face模型ID（例如'meta-llama/Llama-2-7b-hf'）从Hub加载；2）包含diffusers模型的本地目录路径（必须包含'transformer/config.json'）。",
   "cli.inference.throughput_optimizer:device": "设备",
   "cli.inference.throughput_optimizer:num_devices": "设备数量",
   "cli.inference.throughput_optimizer:reserved_memory_gb": "保留内存（GB）",
