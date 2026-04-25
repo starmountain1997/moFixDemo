@@ -52,7 +52,7 @@ def _make_handler(reflector: CLIReflector) -> Any:
     Wrap CLIReflector with model-ID validation.
     Must be called after build_accordions() so component order is fixed.
     """
-    dests = list(reflector.components.keys())
+    dests = list(reflector.components)
 
     def handler(*args: Any, progress: gr.Progress = gr.Progress()) -> str:
         values: dict[str, Any] = dict(zip(dests, args))

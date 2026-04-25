@@ -139,7 +139,7 @@ class ArgDef:
             parts = str(value).split() if isinstance(value, str) else list(value)
             result: list[str] = []
             for p in parts:
-                result += [flag, p]
+                result.extend([flag, p])
             return result
 
         if self.nargs in ("*", "+"):
@@ -175,7 +175,7 @@ class ArgDef:
 
         # Dropdown (choices present) ──────────────────────────────────────────
         if choices:
-            strs = list(choices)
+            strs = choices
             nullable = default is None and not self.required
             if nullable:
                 strs = [_NONE_SENTINEL] + strs
@@ -191,7 +191,7 @@ class ArgDef:
         # Multi-value text (nargs) ────────────────────────────────────────────
         if self.nargs in ("*", "+"):
             val_str = (
-                " ".join(map(str, default))
+                " ".join(str(x) for x in default)
                 if isinstance(default, list)
                 else str(default or "")
             )
@@ -257,7 +257,7 @@ def _eval(node: ast.expr | None) -> Any:
         if func == "range" and 1 <= len(node.args) <= 2:
             try:
                 return list(range(*[n.value for n in node.args]))  # type: ignore[union-attr]
-            except Exception:
+            except (AttributeError, TypeError):
                 pass
         return f"@call:{func}"
     if isinstance(node, ast.ListComp):
@@ -517,7 +517,7 @@ class CLIReflector:
         The function accepts values in the same order as the components returned
         by ``build_accordions()``, plus a ``gr.Progress`` keyword argument.
         """
-        dests = list(self._components.keys())
+        dests = list(self._components)
         arg_defs = self._arg_defs
 
         def _handler(*args: Any, progress: gr.Progress = gr.Progress()) -> str:

@@ -17,7 +17,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
 # Ensure src/ is importable (must precede imports from src/)
 _SRC_DIR = Path(__file__).parent.parent / "src"
@@ -33,14 +32,6 @@ from arg_reflector import CLIReflector  # noqa: E402
 API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.minimaxi.com/v1")
 MODEL_NAME = os.environ.get("ANTHROPIC_MODEL", "MiniMax-M2.7-highspeed")
-
-
-# ── English description synthesis ───────────────────────────────────────────────
-
-
-def synthesize_en(arg: Any) -> str:
-    """Get the help text from an ArgDef."""
-    return str(getattr(arg, "help_text", "")) or ""
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -91,10 +82,8 @@ async def translate_batch(
         max_tokens=4096,
     )
     content = response.choices[0].message.content
-    # Extract JSON from response
     if content is None:
         return {}
-    # Find JSON array in response
     start = content.find("[")
     end = content.rfind("]") + 1
     if start == -1 or end == 0:
@@ -119,7 +108,7 @@ async def main() -> None:
                 if key in seen:
                     continue
                 seen.add(key)
-                en = synthesize_en(arg)
+                en = str(arg.help_text or "")
                 lines.append((key, en))
 
     print(f"Synthesized {len(lines)} English descriptions")
@@ -135,9 +124,7 @@ async def main() -> None:
             return await translate_batch(client, batch)
 
     batch_size = 12
-    batches = [
-        lines[i : i + batch_size] for i in range(0, len(lines), batch_size)
-    ]
+    batches = [lines[i : i + batch_size] for i in range(0, len(lines), batch_size)]
     tasks = [translate_batch_with_semaphore(batch) for batch in batches]
     results = await asyncio.gather(*tasks)
     translations: dict[str, str] = {}
