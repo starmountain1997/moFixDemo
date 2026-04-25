@@ -364,8 +364,8 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
                 with gr.Group():
                     model_id_sim = gr.Textbox(
                         label="模型ID (--model) *",
-                        placeholder="例如：Qwen3-32B 或本地模型路径",
-                        info="模型标准名称（如Qwen3-32B）或本地模型路径",
+                        placeholder="例如：Qwen/Qwen3-32B",
+                        info="HuggingFace 模型 ID（如 Qwen/Qwen3-32B），不支持本地路径",
                     )
                     gr.HTML('<div class="section-divider"></div>')
                     with gr.Row():
@@ -543,8 +543,8 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
                 with gr.Group():
                     model_id_opt = gr.Textbox(
                         label="模型ID (--model) *",
-                        placeholder="例如：Qwen3-32B 或本地模型路径",
-                        info="模型标准名称（如Qwen3-32B）或本地模型路径",
+                        placeholder="例如：Qwen/Qwen3-32B",
+                        info="HuggingFace 模型 ID（如 Qwen/Qwen3-32B），不支持本地路径",
                     )
                     gr.HTML('<div class="section-divider"></div>')
                     with gr.Row():
