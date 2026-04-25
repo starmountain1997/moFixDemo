@@ -10,18 +10,21 @@ import gradio as gr
 # Ensure we can import main and cli modules
 # The project structure is:
 # /home/guozr/CODE/moFixDemo/
-# ├── main.py
+# ├── src/
+# │   └── main.py
 # ├── tests/test_main.py
 # └── msmodeling/ (contains cli/ and tensor_cast/)
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MSMODELING_DIR = os.path.abspath(os.path.join(PROJECT_ROOT, "msmodeling"))
+SRC_DIR = os.path.abspath(os.path.join(PROJECT_ROOT, "src"))
 
+sys.path.insert(0, SRC_DIR)
 sys.path.insert(0, PROJECT_ROOT)
 sys.path.insert(0, MSMODELING_DIR)
 
 # Set PYTHONPATH for subprocesses
-os.environ["PYTHONPATH"] = f"{MSMODELING_DIR}:{os.environ.get('PYTHONPATH', '')}"
+os.environ["PYTHONPATH"] = f"{SRC_DIR}:{MSMODELING_DIR}:{os.environ.get('PYTHONPATH', '')}"
 
 import main
 
