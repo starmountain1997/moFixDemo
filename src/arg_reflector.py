@@ -29,15 +29,19 @@ from typing import Any
 
 import gradio as gr
 
-
 # ── Enum/choices tables (avoids importing tensor_cast at parse time) ──────────
 
 _ENUM_CHOICES: dict[str, list[str]] = {
     "QuantizeLinearAction": [
         "DISABLED",
-        "W8A16_STATIC", "W8A8_STATIC", "W4A8_STATIC",
-        "W8A16_DYNAMIC", "W8A8_DYNAMIC", "W4A8_DYNAMIC",
-        "FP8", "MXFP4",
+        "W8A16_STATIC",
+        "W8A8_STATIC",
+        "W4A8_STATIC",
+        "W8A16_DYNAMIC",
+        "W8A8_DYNAMIC",
+        "W4A8_DYNAMIC",
+        "FP8",
+        "MXFP4",
     ],
     "QuantizeAttentionAction": ["DISABLED", "INT8", "FP8"],
     "WordEmbeddingTPMode": ["col", "row"],
@@ -61,25 +65,28 @@ _DEST_CHOICES: dict[str, list[str]] = {
 }
 
 _INT_TYPES = frozenset({"int", "check_positive_integer"})
-_FLOAT_TYPES = frozenset({"float", "check_positive_float", "check_prefix_cache_hit_rate"})
+_FLOAT_TYPES = frozenset(
+    {"float", "check_positive_float", "check_prefix_cache_hit_rate"}
+)
 
 _NONE_SENTINEL = "(不设置)"
 
 
 # ── ArgDef data model ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class ArgDef:
-    flags: list[str]        # ["--num-queries"] or ["model_id"] for positional
-    dest: str               # argparse dest attribute: "num_queries"
-    group: str              # label from add_argument_group()
-    type_name: str | None   # leaf type name: "int", "check_positive_integer", …
-    default: Any            # literal default, or "@var:…" sentinel for enum attrs
-    choices: list | None    # literal values or "@enum:…" sentinels
+    flags: list[str]  # ["--num-queries"] or ["model_id"] for positional
+    dest: str  # argparse dest attribute: "num_queries"
+    group: str  # label from add_argument_group()
+    type_name: str | None  # leaf type name: "int", "check_positive_integer", …
+    default: Any  # literal default, or "@var:…" sentinel for enum attrs
+    choices: list | None  # literal values or "@enum:…" sentinels
     required: bool
     help_text: str
-    action: str | None      # "store_true", "append", …
-    nargs: Any | None       # "*", "+", int, or None
+    action: str | None  # "store_true", "append", …
+    nargs: Any | None  # "*", "+", int, or None
     is_positional: bool = False
 
     # ── Choices resolution ────────────────────────────────────────────────────
@@ -104,7 +111,9 @@ class ArgDef:
         """Return the default value, resolving "@var:Enum.MEMBER" sentinels."""
         d = self.default
         if isinstance(d, str) and d.startswith("@var:"):
-            bare = d[5:].split(".")[-1]   # "QuantizeLinearAction.W8A8_DYNAMIC" → "W8A8_DYNAMIC"
+            bare = d[5:].split(".")[
+                -1
+            ]  # "QuantizeLinearAction.W8A8_DYNAMIC" → "W8A8_DYNAMIC"
             if choices and bare in choices:
                 return bare
             return choices[0] if choices else None
@@ -141,11 +150,11 @@ class ArgDef:
 
     # ── Gradio component ──────────────────────────────────────────────────────
 
-    def to_gradio(self) -> gr.components.Component:
+    def to_gradio(self, *, translation: str | None = None) -> gr.components.Component:
         """Build the matching Gradio component for this argument."""
         flag = self.flags[0] if self.flags else f"--{self.dest.replace('_', '-')}"
         label = flag + (" *" if self.required else "")
-        info = (self.help_text or "")[:300]
+        info = (translation or self.help_text or "")[:500]
 
         choices = self.resolved_choices()
         default = self.resolved_default(choices)
@@ -170,8 +179,10 @@ class ArgDef:
             nullable = default is None and not self.required
             if nullable:
                 strs = [_NONE_SENTINEL] + strs
-            val = _NONE_SENTINEL if nullable else (
-                str(default) if default is not None else strs[0]
+            val = (
+                _NONE_SENTINEL
+                if nullable
+                else (str(default) if default is not None else strs[0])
             )
             if val not in strs:
                 val = strs[0]
@@ -180,7 +191,8 @@ class ArgDef:
         # Multi-value text (nargs) ────────────────────────────────────────────
         if self.nargs in ("*", "+"):
             val_str = (
-                " ".join(map(str, default)) if isinstance(default, list)
+                " ".join(map(str, default))
+                if isinstance(default, list)
                 else str(default or "")
             )
             return gr.Textbox(label=label, value=val_str, info=info)
@@ -217,6 +229,7 @@ class GroupDef:
 
 # ── AST evaluation helpers ────────────────────────────────────────────────────
 
+
 def _eval(node: ast.expr | None) -> Any:
     """Best-effort convert an AST expression to a Python value."""
     if node is None:
@@ -237,10 +250,10 @@ def _eval(node: ast.expr | None) -> Any:
         if func == "list" and len(node.args) == 1:
             inner = _eval(node.args[0])
             if isinstance(inner, str) and inner.startswith("@var:"):
-                return [f"@enum:{inner[5:]}"]   # list(SomeEnum) → enum sentinel
+                return [f"@enum:{inner[5:]}"]  # list(SomeEnum) → enum sentinel
             if isinstance(inner, list):
                 return inner
-            return None   # e.g. list(dict.keys()) — use _DEST_CHOICES fallback
+            return None  # e.g. list(dict.keys()) — use _DEST_CHOICES fallback
         if func == "range" and 1 <= len(node.args) <= 2:
             try:
                 return list(range(*[n.value for n in node.args]))  # type: ignore[union-attr]
@@ -267,7 +280,8 @@ def _dest_from_flags(flags: list[str]) -> str:
 def _parse_add_argument(call: ast.Call, group: str) -> ArgDef | None:
     """Extract an ArgDef from a single add_argument() Call node."""
     flags = [
-        arg.value for arg in call.args
+        arg.value
+        for arg in call.args
         if isinstance(arg, ast.Constant) and isinstance(arg.value, str)
     ]
     if not flags:
@@ -316,6 +330,7 @@ def _parse_add_argument(call: ast.Call, group: str) -> ArgDef | None:
 
 # ── File parser ───────────────────────────────────────────────────────────────
 
+
 def parse_cli_file(path: Path) -> list[GroupDef]:
     """
     Parse a Python CLI source file and return argument groups in source order.
@@ -329,7 +344,7 @@ def parse_cli_file(path: Path) -> list[GroupDef]:
         key=lambda n: (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)),
     )
 
-    group_vars: dict[str, str] = {}   # variable name → group label
+    group_vars: dict[str, str] = {}  # variable name → group label
     groups: dict[str, GroupDef] = {}
     group_order: list[str] = []
     seen_dests: set[str] = set()
@@ -375,6 +390,7 @@ def parse_cli_file(path: Path) -> list[GroupDef]:
 
 
 # ── CLIReflector ──────────────────────────────────────────────────────────────
+
 
 class CLIReflector:
     """
@@ -443,6 +459,7 @@ class CLIReflector:
         *,
         skip_dests: set[str] | None = None,
         open_groups: set[str] | None = None,
+        translations: dict[str, str] | None = None,
     ) -> dict[str, gr.components.Component]:
         """
         Render all argument groups as gr.Accordion blocks.
@@ -451,9 +468,14 @@ class CLIReflector:
 
         Returns an ordered ``{dest: component}`` dict that should be passed as
         ``inputs=list(result.values())`` in the button click handler.
+
+        Args:
+            translations: Optional ``{f"{cli_module}:{dest}": chinese_text}`` dict
+                to replace the default help text with Chinese descriptions.
         """
         skip_dests = skip_dests or set()
         open_groups = open_groups or set()
+        translations = translations or {}
         self._components.clear()
 
         for group in self._groups:
@@ -463,7 +485,9 @@ class CLIReflector:
             is_open = group.name in open_groups or any(a.required for a in visible)
             with gr.Accordion(group.name, open=is_open):
                 for arg in visible:
-                    self._components[arg.dest] = arg.to_gradio()
+                    key = f"{self.cli_module}:{arg.dest}"
+                    zh = translations.get(key)
+                    self._components[arg.dest] = arg.to_gradio(translation=zh)
 
         return dict(self._components)
 
@@ -509,7 +533,9 @@ class CLIReflector:
                 progress(0.5, desc="正在执行 msmodeling…")
 
             try:
-                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, check=False
+                )
                 out = f"**执行命令:** `{' '.join(cmd)}`\n\n"
                 if result.stdout:
                     out += f"#### 标准输出 (stdout):\n```text\n{result.stdout}\n```\n"
@@ -536,13 +562,15 @@ class CLIReflector:
 
 # ── CLI tool ──────────────────────────────────────────────────────────────────
 
+
 def _print_groups(groups: list[GroupDef]) -> None:
     for g in groups:
         print(f"\n[{g.name}]")
         for a in g.args:
             choices = a.resolved_choices()
             choices_repr = (
-                f"[{choices[0]!r}…]({len(choices)})" if choices and len(choices) > 4
+                f"[{choices[0]!r}…]({len(choices)})"
+                if choices and len(choices) > 4
                 else repr(choices)
             )
             print(

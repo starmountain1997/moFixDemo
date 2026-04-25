@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -14,6 +15,11 @@ if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
 from arg_reflector import CLIReflector  # noqa: E402
+
+_TRANSLATIONS_PATH = _SRC_DIR / "translations_zh.json"
+ZH_TRANSLATIONS: dict[str, str] = {}
+if _TRANSLATIONS_PATH.exists():
+    ZH_TRANSLATIONS = json.loads(_TRANSLATIONS_PATH.read_text())
 
 _CLI_DIR = Path(__file__).parent.parent / "msmodeling" / "cli"
 _COMMON_FILE = _CLI_DIR / "utils.py"
@@ -160,7 +166,9 @@ theme = gr.themes.Default(
     body_background_fill_dark="#1a1a2e",
 )  # type: ignore[reportPrivateImportUsage]
 
-with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme, css=custom_css) as demo:
+with gr.Blocks(
+    title="msModeling 推理仿真与参数寻优工具", theme=theme, css=custom_css
+) as demo:
     gr.HTML("""
     <div id="header">
         <h1>msModeling 推理仿真与参数寻优工具</h1>
@@ -184,7 +192,7 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
             </div>
             """)
 
-            comps_sim = _sim_reflector.build_accordions()
+            comps_sim = _sim_reflector.build_accordions(translations=ZH_TRANSLATIONS)
 
             gr.HTML("""
             <div style="background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 6px; padding: 14px 16px; margin: 16px 0;">
@@ -196,7 +204,9 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
             """)
 
             sim_output = gr.Markdown(label="执行结果")
-            sim_btn = gr.Button("▶️ 执行仿真", variant="primary", elem_classes="submit-btn")
+            sim_btn = gr.Button(
+                "▶️ 执行仿真", variant="primary", elem_classes="submit-btn"
+            )
             sim_btn.click(
                 _make_handler(_sim_reflector),
                 inputs=list(comps_sim.values()),
@@ -217,7 +227,7 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
             </div>
             """)
 
-            comps_opt = _opt_reflector.build_accordions()
+            comps_opt = _opt_reflector.build_accordions(translations=ZH_TRANSLATIONS)
 
             gr.HTML("""
             <div style="background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 6px; padding: 14px 16px; margin: 16px 0;">
@@ -229,7 +239,9 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
             """)
 
             opt_output = gr.Markdown(label="执行结果")
-            opt_btn = gr.Button("▶️ 执行寻优", variant="primary", elem_classes="submit-btn")
+            opt_btn = gr.Button(
+                "▶️ 执行寻优", variant="primary", elem_classes="submit-btn"
+            )
             opt_btn.click(
                 _make_handler(_opt_reflector),
                 inputs=list(comps_opt.values()),
