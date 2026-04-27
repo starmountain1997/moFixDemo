@@ -12,13 +12,18 @@ dependencies = [
     "modelscope>=1.35.4",
     "optree>=0.13.0",
     "prettytable>=3.17.0",
-    "torch>=2.11.0",
+    "torch>=2.7,<=2.10",
     "transformers>=5.5.4",
 ]
 
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple"
 default = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.uv.workspace]
 members = [
@@ -27,6 +32,7 @@ members = [
 
 [tool.uv.sources]
 liuren-modeling = { workspace = true }
+torch = { index = "pytorch-cpu" }
 
 [dependency-groups]
 dev = [

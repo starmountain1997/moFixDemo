@@ -1,11 +1,34 @@
 import os
 import subprocess
+from functools import lru_cache
 from typing import cast
 
 import gradio as gr
+from transformers import AutoConfig
 
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
+
+SUPPORTED_MODEL_TYPES: set[str] = {
+    "deepseek",
+    "deepseek_v2",
+    "deepseek_v3",
+    "qwen",
+    "qwen2",
+    "qwen2_5_vl",
+    "qwen3",
+    "qwen3_vl",
+    "chatglm",
+    "glm4",
+    "internvl",
+    "internvl2",
+    "ernie",
+    "bailing",
+    "minimax",
+    "mimo",
+    "wan",
+    "hunyuan",
+}
 
 MODEL_KEYWORDS = {
     "DeepSeek": ["deepseek", "deepseek_v3", "deepseek_v32"],
@@ -21,13 +44,30 @@ MODEL_KEYWORDS = {
 }
 
 
+@lru_cache(maxsize=64)
+def _fetch_model_type(model_id: str) -> str | None:
+    try:
+        config = AutoConfig.from_pretrained(model_id.strip(), trust_remote_code=True)
+        return getattr(config, "model_type", None)
+    except Exception:
+        return None
+
+
 def validate_model_id(model_id: str) -> bool:
-    normalized_id = model_id.lower().replace("-", "_")
-    for _category, keywords in MODEL_KEYWORDS.items():
-        for kw in keywords:
-            if kw.lower() in normalized_id:
-                return True
-    return False
+    model_type = _fetch_model_type(model_id.strip())
+    if model_type is None:
+        return False
+    return model_type in SUPPORTED_MODEL_TYPES
+
+
+def validate_model_id_feedback(model_id: str) -> str:
+    """Return validation feedback markdown for the frontend (fires on blur)."""
+    if not model_id or not model_id.strip():
+        return ""
+    if validate_model_id(model_id):
+        return "✅ 模型 ID 已识别，属于支持的架构系列。"
+    supported = ", ".join(MODEL_KEYWORDS.keys())
+    return f"⚠️ 模型 ID 未匹配到支持的架构系列（{supported}），请确认后再提交。"
 
 
 def execute_inference_simulation(
@@ -60,11 +100,12 @@ def execute_inference_simulation(
         quantize_linear_action.split(" ")[0] if quantize_linear_action else "DISABLED"
     )
 
+    model_id = cast(str, model_id).strip()
     cmd: list[str] = [
         "python",
         "-m",
         "cli.inference.text_generate",
-        cast(str, model_id),
+        model_id,
     ]
     if device and device != "无 (None)":
         cmd.extend(["--device", device])
@@ -151,11 +192,12 @@ def execute_parameter_optimization(
         quantize_linear_action.split(" ")[0] if quantize_linear_action else "DISABLED"
     )
 
+    model_id = cast(str, model_id).strip()
     cmd: list[str] = [
         "python",
         "-m",
         "cli.inference.throughput_optimizer",
-        cast(str, model_id),
+        model_id,
     ]
     if device and device != "无 (None)":
         cmd.extend(["--device", device])
@@ -336,7 +378,9 @@ theme = gr.themes.Default(
     body_background_fill_dark="#1a1a2e",
 )  # type: ignore[reportPrivateImportUsage]
 
-with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme, css=custom_css) as demo:
+with gr.Blocks(
+    title="msModeling 推理仿真与参数寻优工具", theme=theme, css=custom_css
+) as demo:
     gr.HTML("""
     <div id="header">
         <h1>msModeling 推理仿真与参数寻优工具</h1>
@@ -366,6 +410,14 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
                         label="模型ID (--model) *",
                         placeholder="例如：Qwen/Qwen3-32B",
                         info="HuggingFace 模型 ID（如 Qwen/Qwen3-32B），不支持本地路径",
+                    )
+                    model_id_sim_feedback = gr.Markdown(
+                        "", elem_id="model-id-sim-feedback"
+                    )
+                    model_id_sim.blur(
+                        validate_model_id_feedback,
+                        inputs=[model_id_sim],
+                        outputs=[model_id_sim_feedback],
                     )
                     gr.HTML('<div class="section-divider"></div>')
                     with gr.Row():
@@ -500,7 +552,9 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
             """)
 
             sim_output = gr.Markdown(label="执行结果")
-            sim_submit_btn = gr.Button("▶️ 执行仿真", variant="primary", elem_classes="submit-btn")
+            sim_submit_btn = gr.Button(
+                "▶️ 执行仿真", variant="primary", elem_classes="submit-btn"
+            )
 
             sim_submit_btn.click(
                 execute_inference_simulation,
@@ -545,6 +599,14 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
                         label="模型ID (--model) *",
                         placeholder="例如：Qwen/Qwen3-32B",
                         info="HuggingFace 模型 ID（如 Qwen/Qwen3-32B），不支持本地路径",
+                    )
+                    model_id_opt_feedback = gr.Markdown(
+                        "", elem_id="model-id-opt-feedback"
+                    )
+                    model_id_opt.blur(
+                        validate_model_id_feedback,
+                        inputs=[model_id_opt],
+                        outputs=[model_id_opt_feedback],
                     )
                     gr.HTML('<div class="section-divider"></div>')
                     with gr.Row():
@@ -649,7 +711,9 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
                         info="最大预填充令牌数",
                     )
 
-            with gr.Accordion("📦 Disaggregation mode 参数 (分离模式)", open=False, visible=False):
+            with gr.Accordion(
+                "📦 Disaggregation mode 参数 (分离模式)", open=False, visible=False
+            ):
                 with gr.Group():
                     with gr.Row():
                         ttft_limits_disagg = gr.Number(
@@ -678,7 +742,9 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
                             info="启用PD分离模式",
                         )
 
-            with gr.Accordion("📦 PD Ratio Optimization mode 参数", open=False, visible=False):
+            with gr.Accordion(
+                "📦 PD Ratio Optimization mode 参数", open=False, visible=False
+            ):
                 with gr.Group():
                     with gr.Row():
                         prefill_devices_per_instance = gr.Number(
@@ -740,7 +806,9 @@ with gr.Blocks(title="msModeling 推理仿真与参数寻优工具", theme=theme
             """)
 
             opt_output = gr.Markdown(label="执行结果")
-            opt_submit_btn = gr.Button("▶️ 执行寻优", variant="primary", elem_classes="submit-btn")
+            opt_submit_btn = gr.Button(
+                "▶️ 执行寻优", variant="primary", elem_classes="submit-btn"
+            )
 
             opt_submit_btn.click(
                 execute_parameter_optimization,
